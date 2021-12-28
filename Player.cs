@@ -38,6 +38,7 @@ sealed class Agent : IPlayer
 
     public int Deliberate(Board board)
     {
+#if false
         int minimax(Board currentBoard, int depth, Player player)
         {
             if (depth == 0)
@@ -58,6 +59,8 @@ sealed class Agent : IPlayer
         }
 
         return minimax(board, depthLimit, Player.Agent);
+#endif
+        throw new NotImplementedException();
     }
 
     private int Evaluate(Board board)
@@ -79,3 +82,4 @@ sealed class Human : IPlayer
     public Cell GetCell() => Cell.HumanPiece;
     public Player GetPiece() => Player.Human;
 }
+

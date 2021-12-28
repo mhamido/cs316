@@ -1,7 +1,7 @@
 ﻿
 namespace ai
 {
-    partial class Form1
+    partial class Controller
     {
         /// <summary>
         /// Required designer variable.
