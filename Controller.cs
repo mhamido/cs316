@@ -1,17 +1,26 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
 namespace ai
 {
+    public enum Phase
+    {
+        SettingBoardSize,
+        SettingFirstMoveAndStreak,
+        GameInProgress,
+    }
+
     public partial class Controller : Form
     {
         private Bitmap off;
-        private Agent agent;
-        private Player player;
         private Board board = null;
-        private int columns = 7, rows = 6, playerTurn = 1;
+        private Agent agent = new Agent();
+        private Human player = new Human();
+        private int columns = 7, rows = 6, playerTurn = 1, move = 0;
         private bool StartGame = true, startplayer = true;
+        private List<Bitmap> number = new List<Bitmap>();
 
         public Controller()
         {
@@ -20,6 +29,60 @@ namespace ai
             this.Paint += Form1_Paint1;
             this.KeyDown += Form1_KeyDown;
             this.KeyUp += Form1_KeyUp;
+            this.MouseClick += Controller_MouseClick;
+            Init();
+        }
+
+        private void Init()
+        {
+            agent = new Agent();
+            player = new Human();
+            StartGame = true;
+            startplayer = true;
+        }
+
+        private void CheckForWin()
+        {
+            Cell cell = board.HasWon();
+            switch (cell)
+            {
+                case Cell.Empty:
+                    DrawDubb(CreateGraphics());
+                    return;
+                case Cell.AgentPiece:
+                    MessageBox.Show("The agent has won!");
+                    break;
+                case Cell.HumanPiece:
+                    MessageBox.Show("The human has won!");
+                    break;
+            }
+
+            Init();
+            DrawDubb(CreateGraphics());
+        }
+
+        private void Controller_MouseClick(object sender, MouseEventArgs e)
+        {
+            int x = (Width - (columns * 75)) / 2, y = 10, x1 = x;
+            if (!StartGame && !startplayer && playerTurn == 2)
+            {
+                for (int i = 1; i < columns + 1; i++)
+                {
+                    if (e.X > x1 && e.X < x + 75 * i && e.Y > y && e.Y < y + rows * 75)
+                    {
+                        board.MakeMove(player, i - 1);
+                        CheckForWin();
+
+                        // TODO: Maybe decouple the rendering of the board before and after the agent's turn?
+                        int col = agent.Deliberate(board);
+
+                        board.MakeMove(agent, col);
+                        CheckForWin();
+                    }
+                    x1 = x + 75 * i;
+                }
+            }
+            DrawDubb(CreateGraphics());
         }
 
         private void Form1_KeyUp(object sender, KeyEventArgs e)
@@ -30,40 +93,63 @@ namespace ai
                     if (StartGame && columns < 10)
                     {
                         columns++;
+                        board = null;
+                    }
+                    if (!StartGame && startplayer)
+                    {
+                        if (move >= 0 && move < 5)
+                        {
+                            move++;
+                        }
                     }
                     break;
                 case Keys.Down:
                     if (StartGame && columns > 5)
                     {
                         columns--;
+                        board = null;
+                    }
+                    if (!StartGame && startplayer)
+                    {
+                        if (move > 0 && move <= 6)
+                        {
+                            move--;
+                        }
                     }
                     break;
                 case Keys.Left:
                     if (StartGame && rows < 10)
                     {
                         rows++;
+                        board = null;
                     }
                     break;
                 case Keys.Right:
                     if (StartGame && rows > 5)
                     {
                         rows--;
+                        board = null;
                     }
                     break;
                 case Keys.Enter:
                     StartGame = false;
-                    board = new Board(rows, columns, 4);
                     break;
-                case Keys.NumPad1:
+                case Keys.D1:
                     if (!StartGame && startplayer)
                     {
+                        board = new Board(rows, columns, move + 4);
                         startplayer = false;
                         playerTurn = 1;
+                        int col = agent.Deliberate(board);
+                        board.MakeMove(agent, col);
+                        DrawDubb(CreateGraphics());
+                        playerTurn = 2;
                     }
                     break;
-                case Keys.NumPad2:
+                case Keys.D2:
                     if (!StartGame && startplayer)
                     {
+                        board = new Board(rows, columns, move + 4);
                         startplayer = false;
                         playerTurn = 2;
                     }
@@ -84,7 +170,11 @@ namespace ai
         private void Form1_Load(object sender, EventArgs e)
         {
             off = new Bitmap(ClientSize.Width, ClientSize.Height);
-
+            for (int k = 4; k < 10; k++)
+            {
+                Bitmap img = new Bitmap(k + ".jpg");
+                number.Add(img);
+            }
         }
 
         void DrawDubb(Graphics g)
@@ -109,12 +199,27 @@ namespace ai
             Font drawFont = new Font("Arial", 16);
             Pen blackPen = new Pen(Color.Black, 5);
             int x = (Width - (columns * 75)) / 2, y = 10;
+            g.DrawString("win by connect:", drawFont, blackBrush, 100, 300);
+            g.DrawImage(number[move], 250, 298);
             for (int i = 0; i < rows; i++)
             {
                 for (int k = 0; k < columns; k++)
                 {
                     g.FillRectangle(yellowBrush, x, y, 75, 75);
-                    g.FillEllipse(grayBrush, x, y, 70, 70);
+                    if (board != null) switch (board.Cells[i, k])
+                        {
+                            case Cell.Empty:
+                                g.FillEllipse(grayBrush, x, y, 70, 70);
+                                break;
+                            case Cell.AgentPiece:
+                                g.FillEllipse(redBrush, x, y, 70, 70);
+                                break;
+                            case Cell.HumanPiece:
+                                g.FillEllipse(blueBrush, x, y, 70, 70);
+                                break;
+                        }
+                    else
+                        g.FillEllipse(grayBrush, x, y, 70, 70);
                     x += 75;
                 }
                 y += 75;
@@ -145,7 +250,7 @@ namespace ai
             }
             else
             {
-                g.DrawString("press enter to start the game:", drawFont, blackBrush, 5, 5);
+                g.DrawString("Press enter to start the game:", drawFont, blackBrush, 5, 5);
             }
         }
     }
